@@ -1,5 +1,10 @@
+# logs and databases
+*.sqlite
 
-Data/
-*.txt
+# OS generated files
 .DS_Store
 .ipynb_checkpoints
+
+# data files
+Data/
+*.txt
