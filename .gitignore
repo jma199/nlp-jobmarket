@@ -8,3 +8,5 @@
 # data files
 Data/
 *.txt
+
+geckodriver.log
