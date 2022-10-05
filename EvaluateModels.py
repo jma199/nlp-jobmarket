@@ -27,6 +27,7 @@ class EvaluateModels:
         self.scoring = scoring
         self.num_folds = num_folds
         self.seed = seed
+
         self.grid = None
         self.best_params = None
         self.best_score = None
@@ -76,21 +77,15 @@ class EvaluateModels:
                 columns=['mean_train_score', 'mean_test_score', 'mean_fit_time', 'mean_score_time'], 
                 index=self.plot_labels))
     
-    # def make_gridsearch(self, pipe):
-    #     kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
-    #     grid = GridSearchCV(pipe, param_grid = self.params, cv=kfold, scoring= self.scoring, 
-    #             # return_train_score=True
-    #             )
-    #     return grid
-    
-    def fit_pipeline(self, x_train, y_train):
+    def run_cv(self, x_train, y_train):
         '''Creates pipeline and fits GridSearchCV with pipeline.
         Prints best results, plot of all tested parameters, 
         then prints table with cv results'''
-        
+
+        for (name, model) in self.models:
+
         pipe = self.make_pipeline()
         # run grid search with pipeline
-        # self.grid = self.make_gridsearch(pipe)
         kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
         self.grid = GridSearchCV(pipe, param_grid = self.params, cv=kfold, scoring= self.scoring, 
                 # return_train_score=True
@@ -99,3 +94,13 @@ class EvaluateModels:
         self.get_best_results()
         self.plot_results()
         self.show_cvresults()
+
+class EvaluatePreprocessors(EvaluateModels):
+    '''Subclass that evaluates multiple preprocessors in a pipeline with one estimator'''
+    def __init__(self, preprocessors: list, estimators, scoring, **kwargs):
+        super().__init__(preprocessors, constant = estimators, scoring=scoring, **kwargs)
+
+class EvaluateEstimators(EvaluateModels):
+    '''Subclass that evaluates multiple estimators in a pipeline with one preprocessor'''
+    def __init__(self, estimators: list, preprocessing, scoring, **kwargs):
+        super().__init__(estimators, constant = preprocessing, scoring= scoring, **kwargs)
