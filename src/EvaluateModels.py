@@ -12,9 +12,9 @@ class EvaluateModels:
     Parameters
     ----------
     
-    models: A list of tuples of models to be evaluated
+    models: A list of tuples of estimators to be evaluated
     constant_model: use either "vectorizer" or "estimator"
-    constant_model_name: A tuple containing 'model name', and model() to be evaluated
+    constant_model_name: A tuple containing ('model name', model()) to be evaluated
     params: A dictionary of parameters to be test using GridSearch. The 
             parameter key should start with the same str used for the 'name' 
             in the models tuple.
@@ -60,10 +60,13 @@ class EvaluateModels:
         '''Plot the test scores from cross_validate for each model as a boxplot'''
         nums = range(len(test_scores))
         label_mapper = dict(zip(nums, cv_index))
-        data = pd.DataFrame(test_scores).rename(columns=label_mapper)
+        data = pd.DataFrame(test_scores).T.rename(columns=label_mapper)
+        # print('Dataframe: Test Scores for each Model Tested')
         # print(data)
+        print('='*50)
         data.plot(kind='box', xlabel=cv_index)
         plt.ylabel("cv_score")
+        plt.xticks(rotation=30)
         plt.show()
     
     def get_plot_labels(self, result_df):
@@ -81,19 +84,22 @@ class EvaluateModels:
         label_mapper = dict(zip(nums, clean_labels))
         return cv_score_df.rename(columns= label_mapper)
     
-    def best_cvresults(self):
+    def print_best_cvresults(self):
+        print('='*40)
         print(f'The best mean test score: {self.best_score}')
-        print(f'The best model: {self.best_model}')
+        print(f'The best model: {self.best_model}', end='\n')
     
     def print_cvresults(self, cv_results, cv_index):
         '''Get cross_validate results'''
         self.result_df = (pd.DataFrame(data = cv_results, index= cv_index,
                 columns=['test_score', 'train_score', 'fit_time', 'score_time'], 
                 ))
+        print('='*40)
         print(self.result_df)
 
-    # def plot_results(self):
-    #     '''Plot the results of the key parameter from grid search results'''
+    # def plot_mean_results(self):
+    #     '''Plot the results of the key parameter from grid search results
+    #       Plots bar graph using mean value of scoring parameter.'''
     #     plot_data = self.result_df['test_score']
     #     plot_data.plot(kind='bar', use_index=True)
     #     plt.ylabel("cv_score")
@@ -111,50 +117,60 @@ class EvaluateModels:
         X = x_train.values
         y = y_train.values
 
-        cv_results = [] # model scores
+        cv_results = [] # mean model scores
         cv_std = []
         cv_index = [] # list of models
         test_scores = [] # list of model test scores
 
         for model in self.model_list: # for each tuple in list of tuples
-            print(f'Testing {model}')
+            print(f'Testing {model[0]}')
             model_pipe = self.make_pipeline(model)
+            
+            # check = [key for key in self.params.keys() if model[0]]
+            # if len(check) == 1:
+            # # if model[0] in self.params.keys():
+            #     model = self.tune_hyperparameters(model, X,  y)
+            
             kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
             self.cv_search = cross_validate(model_pipe, X, y, cv=kfold, scoring= self.scoring, return_train_score=True)        
 
+            # get scores
             scores = {name:np.mean(value) for name, value in self.cv_search.items()}
             cv_results.append(scores)
             std = {name:np.std(value) for name, value in self.cv_search.items()}
             cv_std.append(std)
             cv_index.append(model[0])
 
-            # store individual test scores for plot_results
-            model_test_score = self.cv_search['test_score']
-            test_scores.append(model_test_score)
-
+            # store individual test scores
+            model_test_scores = self.cv_search['test_score']
+            test_scores.append(model_test_scores)
+            
+            # store best results
             self.store_best_results(model)
 
-        self.best_cvresults()
+        self.print_best_cvresults()
         self.print_cvresults(cv_results, cv_index)
-        # self.plot_results()
         self.plot_testscores_box(test_scores, cv_index)
 
-    def tune_hyperparameters(self, x_train, y_train):
+    def tune_hyperparameters(self, model, x_train, y_train):
         '''Perform hyperparameter tuning and set best parameter for best performing model'''
-        pipe = self.make_pipeline()
+        pipe = self.make_pipeline(model)
         kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
-        self.grid = GridSearchCV(pipe, param_grid = self.params, cv=kfold, scoring= self.scoring, 
-                # return_train_score=True
-                )
-        self.grid.fit(x_train.values, y_train.values)
-        self.best_pipe.set_params(**self.best_params)
-        # self.plot_results()
-        # self.show_cvresults()
+        self.grid_search = GridSearchCV(pipe, 
+                                        param_grid = self.params, 
+                                        cv=kfold, 
+                                        scoring= self.scoring, 
+                                        return_train_score=True)
+        self.grid_search.fit(x_train.values, y_train.values)
+        
+        print(f'Best parameters found for {model[0]}:')
+        print(f'  -- {self.grid_search.best_params_}')
+        model.set_params(**self.grid_search.best_params_)
 
 class EvaluatePreprocessors(EvaluateModels):
     '''Subclass that evaluates multiple preprocessors in a pipeline with one estimator'''
-    def __init__(self, preprocessors: list, estimator, scoring, **kwargs):
-        super().__init__(preprocessors, estimator, scoring=scoring, **kwargs)
+    def __init__(self, preprocessors: list, estimator, test_type, scoring, **kwargs):
+        super().__init__(preprocessors, estimator, test_type, scoring=scoring, **kwargs)
 
 class EvaluateEstimators(EvaluateModels):
     '''Subclass that evaluates multiple estimators in a pipeline with one preprocessor'''
