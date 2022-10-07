@@ -33,7 +33,7 @@ class EvaluateModels:
         self.seed = seed
 
         self.params = params
-        self.cv_search = None
+        self.cv_search = None # holds raw CV search results
         self.best_score = None
         self.best_model = None
         self.best_params = None
@@ -56,6 +56,56 @@ class EvaluateModels:
             self.best_score = np.mean(self.cv_search['test_score'])
             self.best_model = model
     
+    # def get_plot_labels(self, grid_results):
+    #     '''From GridSearchCV results, get list with x labels'''
+    #     col_labels = [col for col in grid_results.columns if 'param_' in col]
+    #     col_label = str(col_labels[0])
+    #     plot_labels = grid_results[col_label].values.tolist()
+    #     return [str(i).split('(')[0] for i in plot_labels]
+    
+    # def make_testscore_df(self, grid_results, plot_labels):
+    #     '''From GridSearchCV results, get test scores to plot'''
+    #     score_cols = [col for col in grid_results.columns if 'split' in col]
+    #     cv_score_df = grid_results[score_cols].T
+    #     nums = range(len(plot_labels))
+    #     label_mapper = dict(zip(nums, plot_labels))
+    #     return cv_score_df.rename(columns= label_mapper)
+    
+    def plot_grid_results(self, grid_search):
+        '''Plot results from GridSearchCV for model parameters'''
+        grid_results = pd.DataFrame(grid_search.cv_results_)
+        
+        col_labels = [col for col in grid_results.columns if 'param_' in col]
+        col_label = str(col_labels[0])
+        plot_labels = grid_results[col_label].values.tolist()
+        clean_labels = [str(i).split('(')[0] for i in plot_labels]
+
+        score_cols = [col for col in grid_results.columns if 'split' in col]
+        cv_score_df = grid_results[score_cols].T
+        nums = range(len(plot_labels))
+        label_mapper = dict(zip(nums, clean_labels))
+        cv_score_df = cv_score_df.rename(columns= label_mapper)
+
+        _, ax = plt.subplots()
+        cv_score_df.boxplot()
+        plt.ylabel("cv_score")
+        ax.set_xticklabels(clean_labels)
+        plt.show()
+    
+    def print_best_cvresults(self):
+        '''Print mean test score and corresponding best model from cross_validate results'''
+        print('='*45)
+        print(f'The best mean test score: {self.best_score}')
+        print(f'The best model: {self.best_model}', end='\n')
+    
+    def print_cvresults(self, cv_results, cv_index):
+        '''Get cross_validate results'''
+        self.result_df = (pd.DataFrame(data = cv_results, index= cv_index,
+                columns=['test_score', 'train_score', 'fit_time', 'score_time'], 
+                ))
+        print('='*45)
+        print(self.result_df)
+
     def plot_testscores_box(self, test_scores, cv_index):
         '''Plot the test scores from cross_validate for each model as a boxplot'''
         nums = range(len(test_scores))
@@ -68,34 +118,6 @@ class EvaluateModels:
         plt.ylabel("cv_score")
         plt.xticks(rotation=30)
         plt.show()
-    
-    def get_plot_labels(self, result_df):
-        '''From GridSearchCV results, get list with x labels'''
-        col_labels = [col for col in result_df.columns if 'param_' in col]
-        col_label = str(col_labels[0])
-        plot_labels = result_df[col_label].values.tolist()
-        return [str(i).split('(')[0] for i in plot_labels]
-    
-    def make_cvscore_df(self, result_df, plot_labels, clean_labels):
-        '''From GridSearchCV results, get test scores to plot'''
-        score_cols = [col for col in result_df.columns if 'split' in col]
-        cv_score_df = result_df[score_cols].T
-        nums = range(len(plot_labels))
-        label_mapper = dict(zip(nums, clean_labels))
-        return cv_score_df.rename(columns= label_mapper)
-    
-    def print_best_cvresults(self):
-        print('='*40)
-        print(f'The best mean test score: {self.best_score}')
-        print(f'The best model: {self.best_model}', end='\n')
-    
-    def print_cvresults(self, cv_results, cv_index):
-        '''Get cross_validate results'''
-        self.result_df = (pd.DataFrame(data = cv_results, index= cv_index,
-                columns=['test_score', 'train_score', 'fit_time', 'score_time'], 
-                ))
-        print('='*40)
-        print(self.result_df)
 
     # def plot_mean_results(self):
     #     '''Plot the results of the key parameter from grid search results
@@ -106,9 +128,9 @@ class EvaluateModels:
     #     plt.show()
     
     def run(self, x_train, y_train):
-        '''Creates pipeline and fits GridSearchCV with pipeline.
-        Prints best results, plot of all tested parameters, 
-        then prints table with cv results'''
+        '''Creates pipeline then performs cross_validate.
+        Prints best results, prints a table with cv results, 
+        andn plots of all tested parameters'''
 
         # if self.test_type == 'pipeline':
             # model = model_list[1]
@@ -122,50 +144,54 @@ class EvaluateModels:
         cv_index = [] # list of models
         test_scores = [] # list of model test scores
 
-        for model in self.model_list: # for each tuple in list of tuples
-            print(f'Testing {model[0]}')
-            model_pipe = self.make_pipeline(model)
+        for model_tuple in self.model_list: # for each tuple in list of tuples
+            model = self.make_pipeline(model_tuple)
             
-            # check = [key for key in self.params.keys() if model[0]]
-            # if len(check) == 1:
-            # # if model[0] in self.params.keys():
-            #     model = self.tune_hyperparameters(model, X,  y)
-            
-            kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
-            self.cv_search = cross_validate(model_pipe, X, y, cv=kfold, scoring= self.scoring, return_train_score=True)        
+            if any(model_tuple[0] in key for key in self.params.keys()):
+                print(f'Parameters found for {model_tuple[0]}')
+                model = self.tune_hyperparameters(model_tuple, X,  y)
+                # print(f'Returned model: {model}')
+            else:
+                kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
+                self.cv_search = cross_validate(model, X, y, cv=kfold, scoring= self.scoring, return_train_score=True)        
 
-            # get scores
-            scores = {name:np.mean(value) for name, value in self.cv_search.items()}
-            cv_results.append(scores)
-            std = {name:np.std(value) for name, value in self.cv_search.items()}
-            cv_std.append(std)
-            cv_index.append(model[0])
+                # get cv_search scores
+                scores = {name:np.mean(value) for name, value in self.cv_search.items()}
+                cv_results.append(scores)
+                std = {name:np.std(value) for name, value in self.cv_search.items()}
+                cv_std.append(std)
+                cv_index.append(model_tuple[0])
 
-            # store individual test scores
-            model_test_scores = self.cv_search['test_score']
-            test_scores.append(model_test_scores)
-            
-            # store best results
-            self.store_best_results(model)
+                # store individual test scores
+                model_test_scores = self.cv_search['test_score']
+                test_scores.append(model_test_scores)
+                
+                # store best results
+                self.store_best_results(model_tuple)
+                print(f'Testing {model_tuple[0]} finished')
 
-        self.print_best_cvresults()
-        self.print_cvresults(cv_results, cv_index)
-        self.plot_testscores_box(test_scores, cv_index)
+            self.print_best_cvresults()
+            self.print_cvresults(cv_results, cv_index)
+            self.plot_testscores_box(test_scores, cv_index)
 
-    def tune_hyperparameters(self, model, x_train, y_train):
+    def tune_hyperparameters(self, model_tuple, X, y):
         '''Perform hyperparameter tuning and set best parameter for best performing model'''
-        pipe = self.make_pipeline(model)
+        pipe = self.make_pipeline(model_tuple)
         kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
-        self.grid_search = GridSearchCV(pipe, 
+        grid_search = GridSearchCV(pipe, 
                                         param_grid = self.params, 
                                         cv=kfold, 
                                         scoring= self.scoring, 
                                         return_train_score=True)
-        self.grid_search.fit(x_train.values, y_train.values)
+        grid_search.fit(X, y)
         
-        print(f'Best parameters found for {model[0]}:')
-        print(f'  -- {self.grid_search.best_params_}')
-        model.set_params(**self.grid_search.best_params_)
+        print(f'Best parameters found for {model_tuple[0]} : {grid_search.best_params_}')
+        print(f'The best mean score is {grid_search.best_score_}')
+        
+        self.plot_grid_results(grid_search)
+
+        pipe.set_params(**grid_search.best_params_)
+        return pipe
 
 class EvaluatePreprocessors(EvaluateModels):
     '''Subclass that evaluates multiple preprocessors in a pipeline with one estimator'''
