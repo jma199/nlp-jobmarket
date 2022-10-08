@@ -7,14 +7,16 @@ from sklearn.model_selection import cross_validate, GridSearchCV
 from sklearn.model_selection import KFold
 
 class EvaluateModels:
-    '''Base class to test text vectorizer and estimators in a pipeline using GridSearchCV.
+    '''Base class to test text vectorizer and classifiers in a pipeline using GridSearchCV.
     
     Parameters
     ----------
     
-    models: A list of tuples of estimators to be evaluated
-    constant_model: use either "vectorizer" or "estimator"
-    constant_model_name: A tuple containing ('model name', model()) to be evaluated
+    model_list: A list of tuples of models to be evaluated. 
+        If this is a list of classifiers, use test_type = "classifier".
+        If this is a list of vectorizers, use test_type = "vectorizer"
+    constant_model: A tuple containing ('model name', model()) to be evaluated
+    test_type: use either "vectorizer" or "classifier"
     params: A dictionary of parameters to be test using GridSearch. The 
             parameter key should start with the same str used for the 'name' 
             in the models tuple.
@@ -37,13 +39,13 @@ class EvaluateModels:
         self.best_score = None
         self.best_model = None
         self.best_params = None
-        self.plot_labels = None
+        # self.plot_labels = None
  
     def make_pipeline(self, model):
         '''Make pipeline with vectorizer and model'''
         if self.test_type == 'vectorizer':
             model_pipe = Pipeline([model, self.constant_model])           
-        if self.test_type == 'estimator':
+        if self.test_type == 'classifier':
             model_pipe = Pipeline([self.constant_model, model]) 
         return model_pipe
 
@@ -94,7 +96,7 @@ class EvaluateModels:
     
     def print_best_cvresults(self):
         '''Print mean test score and corresponding best model from cross_validate results'''
-        print('='*45)
+        print('='*50)
         print(f'The best mean test score: {self.best_score}')
         print(f'The best model: {self.best_model}', end='\n')
     
@@ -103,7 +105,7 @@ class EvaluateModels:
         self.result_df = (pd.DataFrame(data = cv_results, index= cv_index,
                 columns=['test_score', 'train_score', 'fit_time', 'score_time'], 
                 ))
-        print('='*45)
+        print('='*50)
         print(self.result_df)
 
     def plot_testscores_box(self, test_scores, cv_index):
@@ -131,11 +133,7 @@ class EvaluateModels:
         '''Creates pipeline then performs cross_validate.
         Prints best results, prints a table with cv results, 
         andn plots of all tested parameters'''
-
-        # if self.test_type == 'pipeline':
-            # model = model_list[1]
         
-        # run grid search with pipeline
         X = x_train.values
         y = y_train.values
 
@@ -146,11 +144,13 @@ class EvaluateModels:
 
         for model_tuple in self.model_list: # for each tuple in list of tuples
             model = self.make_pipeline(model_tuple)
-            
+
             if any(model_tuple[0] in key for key in self.params.keys()):
                 print(f'Parameters found for {model_tuple[0]}')
                 model = self.tune_hyperparameters(model_tuple, X,  y)
+                cv_index.append(model_tuple[0])
                 # print(f'Returned model: {model}')
+                # returns model with best parameters
             else:
                 kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
                 self.cv_search = cross_validate(model, X, y, cv=kfold, scoring= self.scoring, return_train_score=True)        
@@ -165,15 +165,16 @@ class EvaluateModels:
                 # store individual test scores
                 model_test_scores = self.cv_search['test_score']
                 test_scores.append(model_test_scores)
-                
+
                 # store best results
                 self.store_best_results(model_tuple)
                 print(f'Testing {model_tuple[0]} finished')
 
-            self.print_best_cvresults()
+        self.print_best_cvresults()
+        if not self.best_params:
             self.print_cvresults(cv_results, cv_index)
             self.plot_testscores_box(test_scores, cv_index)
-
+    
     def tune_hyperparameters(self, model_tuple, X, y):
         '''Perform hyperparameter tuning and set best parameter for best performing model'''
         pipe = self.make_pipeline(model_tuple)
@@ -185,20 +186,25 @@ class EvaluateModels:
                                         return_train_score=True)
         grid_search.fit(X, y)
         
-        print(f'Best parameters found for {model_tuple[0]} : {grid_search.best_params_}')
-        print(f'The best mean score is {grid_search.best_score_}')
+        # store best score and parameters
+        self.best_score = grid_search.best_score_
+        self.best_params = grid_search.best_params_
+        
+        print(f'Best parameters found for {model_tuple[0]} : {self.best_params}')
+        print(f'The best mean score is {self.best_score}')
         
         self.plot_grid_results(grid_search)
 
         pipe.set_params(**grid_search.best_params_)
+        self.best_model = pipe.set_params(**grid_search.best_params_)
         return pipe
 
 class EvaluatePreprocessors(EvaluateModels):
-    '''Subclass that evaluates multiple preprocessors in a pipeline with one estimator'''
-    def __init__(self, preprocessors: list, estimator, test_type, scoring, **kwargs):
-        super().__init__(preprocessors, estimator, test_type, scoring=scoring, **kwargs)
+    '''Subclass that evaluates multiple preprocessors in a pipeline with one classifier'''
+    def __init__(self, preprocessors: list, classifier, test_type, scoring, **kwargs):
+        super().__init__(preprocessors, classifier, test_type, scoring=scoring, **kwargs)
 
-class EvaluateEstimators(EvaluateModels):
-    '''Subclass that evaluates multiple estimators in a pipeline with one preprocessor'''
-    def __init__(self, estimators: list, preprocessor, test_type, scoring, **kwargs):
-        super().__init__(estimators, preprocessor, test_type, scoring=scoring, **kwargs)
+class EvaluateClassifiers(EvaluateModels):
+    '''Subclass that evaluates multiple classifiers in a pipeline with one preprocessor'''
+    def __init__(self, classifiers: list, preprocessor, test_type, scoring, **kwargs):
+        super().__init__(classifiers, preprocessor, test_type, scoring=scoring, **kwargs)
