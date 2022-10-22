@@ -28,7 +28,7 @@ There are two main points to takeaway from EDA:
 
 A CatBoost Classifier model was used to classify job descriptions as either data analyst or data scientist. CatBoost is a supervised machine learning model that uses boosted decision trees built sequentially to predict the outcome. The text was pre-processed using a Count vectorizer without stop words to extract text from a job description.
 
-The model did a good job of correctly classifying job descriptions (accuracy of 95%). 
+The model did a good job of correctly classifying job descriptions (accuracy of 95%), but the predictions score were variable.
 
 ## Conclusion
 
