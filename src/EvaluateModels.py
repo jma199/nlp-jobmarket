@@ -180,10 +180,10 @@ class EvaluateModels:
         pipe = self.make_pipeline(model_tuple)
         kfold = KFold(n_splits=self.num_folds, random_state=self.seed, shuffle=True)
         grid_search = GridSearchCV(pipe, 
-                                        param_grid = self.params, 
-                                        cv=kfold, 
-                                        scoring= self.scoring, 
-                                        return_train_score=True)
+                                    param_grid = self.params, 
+                                    cv=kfold, 
+                                    scoring= self.scoring, 
+                                    return_train_score=True)
         grid_search.fit(X, y)
         
         # store best score and parameters
