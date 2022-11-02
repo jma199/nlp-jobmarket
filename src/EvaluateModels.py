@@ -146,7 +146,7 @@ class EvaluateModels:
             model = self.make_pipeline(model_tuple)
 
             if any(model_tuple[0] in key for key in self.params.keys()):
-                print(f'Parameters found for {model_tuple[0]}')
+                print(f'Hyperparameters found for {model_tuple[0]}. Start hyperparameter tuning.')
                 model = self.tune_hyperparameters(model_tuple, X,  y)
                 cv_index.append(model_tuple[0])
                 # print(f'Returned model: {model}')

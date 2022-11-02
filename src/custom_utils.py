@@ -41,6 +41,7 @@ def plot_validation_curve(estimator, X, y, param_name = None, param_range=None, 
     test_score_dict = dict(zip(param_range, test_scores_mean))
     m = max(test_score_dict, key=test_score_dict.get)
     print(f"Parameter with best CV score: {m}, {test_score_dict[m]}")
+    print(f"Best CV score: {test_score_dict[m]}")
 
     _, ax = plt.subplots(figsize=fig_size)
 
