@@ -8,5 +8,5 @@
 # data files
 Data/
 *.txt
-
+models/jobmarket_logreg.pkl
 geckodriver.log
