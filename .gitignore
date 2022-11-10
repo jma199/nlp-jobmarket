@@ -9,4 +9,5 @@
 Data/
 *.txt
 models/jobmarket_logreg.pkl
+catboost_info/
 geckodriver.log

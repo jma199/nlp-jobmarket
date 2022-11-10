@@ -26,12 +26,17 @@ There are two main points to takeaway from EDA:
 
 ## Predictive Modeling
 
-A CatBoost Classifier model was used to classify job descriptions as either data analyst or data scientist. CatBoost is a supervised machine learning model that uses boosted decision trees built sequentially to predict the outcome. The text was pre-processed using a Count vectorizer without stop words to extract text from a job description.
+A CatBoost Classifier model was used to classify job descriptions as either data analyst or data scientist. CatBoost is an algorithm for gradient boosting on decision trees developed by Yandex. The text was pre-processed using Count vectorizer, which removed stop words to extract text from a job description.
 
-The model did a good job of correctly classifying job descriptions (accuracy of 95%), but the predictions score were variable.
+The model correctly classified job descriptions with an accuracy of 94%. The model precision (the proportion of positive identifications that were actually correct) was 92.9%. The recall (the proportion of actual positives that were correctly identified) was 95.1%
+
+The most important features were machine, analyst, scientist, and python.
 
 ## Conclusion
 
-In this project, we have explored text data from job descriptions of data analyst and data scientist job posting and built a predictive model.
+In this project, we have explored text data from job descriptions of data analyst and data scientist job postings and built a predictive model.
 
-Future improvements include performing additional text preprocessing steps such as stemming to reduce noise. Including bi-grams were tried but results often included pairings of words already having their own high score of importance as individual words.
+Future improvements include performing additional text preprocessing steps such as stemming or lemmatization to reduce noise and including bi-grams/tri-grams.
+
+Try it out for yourself here: 
+https://jma199-st-predict-jobtitle-streamlit-app-28a177.streamlit.app/
